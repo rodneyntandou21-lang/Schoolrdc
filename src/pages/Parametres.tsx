@@ -5,6 +5,7 @@ import {
   Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
+import { getCurrentSchoolYear } from '../utils/helpers';
 
 export const Parametres: React.FC = () => {
   const schoolName = useStore((s) => s.schoolName);
@@ -17,7 +18,7 @@ export const Parametres: React.FC = () => {
   const user = useStore((s) => s.user);
 
   const [localSchool, setLocalSchool] = useState(schoolName);
-  const [localYear, setLocalYear] = useState(schoolYear);
+  const [localYear, setLocalYear] = useState(getCurrentSchoolYear());
   const [localRem, setLocalRem] = useState(messageRemerciement);
   const [localRap, setLocalRap] = useState(messageRappel);
   const [localAppName, setLocalAppName] = useState(appName);
@@ -202,14 +203,15 @@ export const Parametres: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest flex items-center justify-between">
                             Année scolaire
+                            <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded text-[8px]">Automatique</span>
                         </label>
                         <input
-                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            disabled
+                            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 outline-none cursor-not-allowed"
                             value={localYear}
-                            onChange={(e) => setLocalYear(e.target.value)}
-                            placeholder="Ex : 2024-2025"
+                            title="L'année scolaire est calculée automatiquement en fonction de la date actuelle."
                         />
                     </div>
                 </div>

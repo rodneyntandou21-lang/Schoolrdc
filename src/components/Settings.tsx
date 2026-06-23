@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Save, School, FileText, Bell, Percent } from 'lucide-react';
+import { getCurrentSchoolYear } from '../utils/helpers';
 
 export const Settings = () => {
   const { settings, updateSettings, user } = useStore();
-  const [formData, setFormData] = useState(settings);
+  const [formData, setFormData] = useState({
+    ...settings,
+    anneScolaire: getCurrentSchoolYear()
+  });
   const [saved, setSaved] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -60,15 +64,16 @@ export const Settings = () => {
                 />
               </div>
               <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Année scolaire
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span>Année scolaire</span>
+                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">Automatique</span>
                 </label>
                 <input
                   type="text"
+                  disabled
                   value={formData.anneScolaire}
-                  onChange={(e) => setFormData({ ...formData, anneScolaire: e.target.value })}
-                  placeholder="2024-2025"
-                  className="w-full"
+                  className="w-full bg-gray-100 cursor-not-allowed text-gray-500"
+                  title="L'année scolaire est calculée automatiquement en fonction de la date actuelle."
                 />
               </div>
               <div className="form-group">

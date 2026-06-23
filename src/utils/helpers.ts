@@ -10,6 +10,19 @@ export const generateId = (): string => {
   });
 };
 
+export const getCurrentSchoolYear = (): string => {
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0 = Jan, 11 = Dec
+  
+  // Dès le mois de juin (index 5) ou juillet, on prépare déjà la rentrée suivante
+  if (currentMonth >= 5) {
+    return `${currentYear}-${currentYear + 1}`;
+  } else {
+    // De janvier à mai, on est dans l'année scolaire commencée l'année précédente
+    return `${currentYear - 1}-${currentYear}`;
+  }
+};
+
 export const getCycleFromClasse = (classe: string): 'Primaire' | 'Collège' | 'Lycée' => {
   return getCycle(classe);
 };

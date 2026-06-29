@@ -13,7 +13,7 @@ async function syncFromFrontend(req, res) {
         return res.status(401).json({ error: 'Authentification requise.' });
     }
 
-    const { students = [], presences = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [] } = req.body;
+    const { students = [], presences = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [], schoolYear = null, schoolYears = [] } = req.body;
     const { role, schoolSlug } = req.user;
 
     if (!['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur'].includes(role)) {
@@ -84,7 +84,8 @@ async function syncFromFrontend(req, res) {
                 ecole_provenance: s.ecoleProvenance || '',
                 date_naissance: s.dateNaissance || null,
                 adsn: s.adsn || null,
-                photo_url: s.photoUrl || null
+                photo_url: s.photoUrl || null,
+                school_year: s.schoolYear || s.school_year || schoolYear || '2025-2026'
             }));
 
             for (let i = 0; i < studentData.length; i += CHUNK_SIZE) {
@@ -103,7 +104,8 @@ async function syncFromFrontend(req, res) {
                             montant: p.montant,
                             date: p.date,
                             recu: p.recu || null,
-                            note: p.note || null
+                            note: p.note || null,
+                            school_year: p.schoolYear || p.school_year || s.schoolYear || s.school_year || schoolYear || '2025-2026'
                         });
                     });
                 }
@@ -156,7 +158,8 @@ async function syncFromFrontend(req, res) {
                 eleve_classe: p.eleveClasse,
                 date: p.date,
                 heure: p.heure,
-                statut: p.statut
+                statut: p.statut,
+                school_year: p.schoolYear || p.school_year || schoolYear || '2025-2026'
             }));
             for (let i = 0; i < presenceData.length; i += CHUNK_SIZE) {
                 const chunk = presenceData.slice(i, i + CHUNK_SIZE);
@@ -198,7 +201,8 @@ async function syncFromFrontend(req, res) {
                 utilisateur_role: l.utilisateurRole,
                 action: l.action,
                 description: l.description,
-                date_heure: l.dateHeure
+                date_heure: l.dateHeure,
+                school_year: l.schoolYear || l.school_year || schoolYear || '2025-2026'
             }));
             for (let i = 0; i < logData.length; i += CHUNK_SIZE) {
                 const chunk = logData.slice(i, i + CHUNK_SIZE);
@@ -239,13 +243,29 @@ async function syncFromFrontend(req, res) {
             }
         }
 
+        // --- 5b. Sync School Years ---
+        if (schoolYears && schoolYears.length > 0) {
+            try {
+                const syData = schoolYears.map(name => ({ name }));
+                const { error: syErr } = await supabase.from(tbl('school_years')).upsert(syData, { onConflict: 'name' });
+                if (syErr) {
+                    console.error('❌ [Sync POST] Erreur school_years:', syErr.message);
+                } else {
+                    console.log(`✅ [Sync POST] ${syData.length} school years sync.`);
+                }
+            } catch (syErr) {
+                console.error('❌ [Sync POST] Exception school_years:', syErr);
+            }
+        }
+
         // --- 6. Sync Academic Data ---
         if (matieres && matieres.length > 0) {
             try {
                 const matieresData = matieres.map(m => ({
                     id: m.id,
                     nom: m.nom,
-                    categorie: m.categorie
+                    categorie: m.categorie,
+                    school_year: m.schoolYear || m.school_year || schoolYear || '2025-2026'
                 }));
                 const { error: matErr } = await supabase.from(tbl('matieres')).upsert(matieresData, { onConflict: 'id' });
                 if (matErr) {
@@ -265,7 +285,8 @@ async function syncFromFrontend(req, res) {
                     classe: cm.classe,
                     matiere_id: cm.matiereId,
                     professeur: cm.professeur || '',
-                    coefficient: cm.coefficient || 1
+                    coefficient: cm.coefficient || 1,
+                    school_year: cm.schoolYear || cm.school_year || schoolYear || '2025-2026'
                 }));
                 const { error: cmErr } = await supabase.from(tbl('classe_matieres')).upsert(cmData, { onConflict: 'id' });
                 if (cmErr) {
@@ -291,7 +312,8 @@ async function syncFromFrontend(req, res) {
                         periode: n.periode,
                         note_classe: n.noteClasse,
                         note_devoir: n.noteDevoir,
-                        note_compo: n.noteCompo
+                        note_compo: n.noteCompo,
+                        school_year: n.schoolYear || n.school_year || schoolYear || '2025-2026'
                     }));
                     const { error: chunkErr } = await supabase.from(tbl('notes')).upsert(chunk, { onConflict: 'id' });
                     if (chunkErr) {
@@ -343,11 +365,15 @@ async function syncToFrontend(req, res) {
         return res.status(403).json({ error: 'Compte non associé à un établissement.' });
     }
 
+    const { schoolYear = null } = req.query;
     const tbl = (name) => `${name}_${schoolSlug}`;
 
     try {
         const fetchTable = async (name, orderField = null, ascending = false) => {
             let q = supabase.from(tbl(name)).select('*');
+            if (schoolYear && !['app_settings', 'parent_student', 'announcement_reads', 'school_years'].includes(name)) {
+                q = q.eq('school_year', schoolYear);
+            }
             if (orderField) q = q.order(orderField, { ascending });
             const { data, error } = await q;
             if (error && error.code !== '42P01') throw error;
@@ -364,6 +390,7 @@ async function syncToFrontend(req, res) {
         const dbClasseMatieres = await fetchTable('classe_matieres');
         const dbNotes = await fetchTable('notes');
         const announcementReads = await fetchTable('announcement_reads');
+        const schoolYears = await fetchTable('school_years', 'created_at', true);
         
         const { data: appSettings, error: settingsError } = await supabase.from(tbl('app_settings')).select('*').single();
         console.log('🎨 [Sync GET] appSettings from DB:', {
@@ -407,6 +434,7 @@ async function syncToFrontend(req, res) {
         });
 
         return res.json({
+            schoolYears: schoolYears.map(sy => sy.name),
             students: Array.from(studentMap.values()),
             presences: presences.map(pr => ({
                 id: pr.id,

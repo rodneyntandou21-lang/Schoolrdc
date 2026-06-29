@@ -39,6 +39,23 @@ DROP FUNCTION IF EXISTS public.drop_school_tables(text);
 CREATE OR REPLACE FUNCTION public.create_school_tables(school_slug text)
 RETURNS void AS $$
 BEGIN
+    -- ── school_years ─────────────────────────────────────────────────────────
+    EXECUTE format('
+        CREATE TABLE IF NOT EXISTS public.school_years_%I (
+            id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+            name text UNIQUE NOT NULL,
+            status text DEFAULT ''active'',
+            created_at timestamptz DEFAULT now()
+        )
+    ', school_slug);
+
+    -- Insérer les sessions scolaires par défaut
+    EXECUTE format('
+        INSERT INTO public.school_years_%I (name, status)
+        VALUES (''2025-2026'', ''active''), (''2026-2027'', ''active'')
+        ON CONFLICT (name) DO NOTHING
+    ', school_slug);
+
     -- ── profiles ────────────────────────────────────────────────────────────
     EXECUTE format('
         CREATE TABLE IF NOT EXISTS public.profiles_%I (
@@ -292,7 +309,7 @@ BEGIN
     NOTIFY pgrst, 'reload schema';
 
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 5. Create the RPC function to drop tables when a school is deleted
 CREATE OR REPLACE FUNCTION public.drop_school_tables(school_slug text)
@@ -315,11 +332,12 @@ BEGIN
     EXECUTE format('DROP TABLE IF EXISTS public.payments_%I CASCADE', school_slug);
     EXECUTE format('DROP TABLE IF EXISTS public.students_%I CASCADE', school_slug);
     EXECUTE format('DROP TABLE IF EXISTS public.profiles_%I CASCADE', school_slug);
+    EXECUTE format('DROP TABLE IF EXISTS public.school_years_%I CASCADE', school_slug);
 
     -- Reload schema cache for PostgREST
     NOTIFY pgrst, 'reload schema';
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6. Helper function: get all school slugs
 CREATE OR REPLACE FUNCTION public.get_all_school_slugs()
@@ -327,7 +345,7 @@ RETURNS TABLE(slug text) AS $$
 BEGIN
     RETURN QUERY SELECT s.slug FROM public.schools s;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 7. Reload schema cache for PostgREST
 NOTIFY pgrst, 'reload schema';

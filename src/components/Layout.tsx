@@ -300,6 +300,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const logout = useStore((s) => s.logout);
   const schoolName = useStore((s) => s.schoolName);
   const schoolYear = useStore((s) => s.schoolYear);
+  const schoolYears = useStore((s) => s.schoolYears);
+  const setSchoolYear = useStore((s) => s.setSchoolYear);
   const students = useStore((s) => s.students);
   const appName = useStore((s) => s.appName);
   const schoolLogo = useStore((s) => s.schoolLogo);
@@ -459,9 +461,21 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 {!isParent && (
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      Session {schoolYear}
-                    </p>
+                    <select
+                      value={schoolYear}
+                      onChange={async (e) => {
+                        const newYear = e.target.value;
+                        setSchoolYear(newYear);
+                        await useStore.getState().fetchAllFromBackend(true);
+                      }}
+                      className="bg-transparent border-none text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest outline-none cursor-pointer focus:ring-0 focus:text-indigo-500 transition-colors p-0"
+                    >
+                      {(schoolYears && schoolYears.length > 0 ? schoolYears : [schoolYear]).map((year) => (
+                        <option key={year} value={year} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          Session {year}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>

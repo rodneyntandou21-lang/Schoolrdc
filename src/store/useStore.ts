@@ -68,6 +68,9 @@ export interface AppState {
   setSchoolName: (name: string) => void;
   schoolYear: string;
   setSchoolYear: (year: string) => void;
+  schoolYears: string[];
+  setSchoolYears: (years: string[]) => void;
+  addSchoolYear: (year: string) => Promise<void>;
   messageRemerciement: string;
   setMessageRemerciement: (m: string) => void;
   messageRappel: string;
@@ -607,6 +610,22 @@ export const useStore = create<AppState>()(
       setSchoolName: (name) => set({ schoolName: name }),
       schoolYear: getCurrentSchoolYear(),
       setSchoolYear: (year) => set({ schoolYear: year }),
+      schoolYears: [getCurrentSchoolYear()],
+      setSchoolYears: (years) => set({ schoolYears: years }),
+      addSchoolYear: async (year: string) => {
+        const currentYears = get().schoolYears || [];
+        if (currentYears.includes(year)) return;
+        const updatedYears = [...currentYears, year];
+        set({ schoolYears: updatedYears });
+        // Sync updated schoolYears to backend
+        try {
+          const { syncToBackend } = await import('../services/backendSync');
+          await syncToBackend({ schoolYears: updatedYears });
+          set({ lastSyncTimestamp: Date.now() });
+        } catch (err) {
+          console.error('Error syncing new school year:', err);
+        }
+      },
       messageRemerciement:
         "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
       setMessageRemerciement: (m) => set({ messageRemerciement: m }),
@@ -958,7 +977,7 @@ export const useStore = create<AppState>()(
         set({ isSyncing: true });
         try {
           const { fetchFromBackend } = await import('../services/backendSync');
-          const data = await fetchFromBackend();
+          const data = await fetchFromBackend(get().schoolYear);
 
           if (!data) {
             console.warn('⚠️ [Sync] Le backend n\'a retourné aucune donnée.');
@@ -980,13 +999,14 @@ export const useStore = create<AppState>()(
             set({
               appName: data.appSettings.appName || get().appName,
               schoolName: data.appSettings.schoolName || get().schoolName,
-              schoolYear: data.appSettings.schoolYear || get().schoolYear,
+              schoolYear: get().schoolYear || data.appSettings.schoolYear,
               schoolLogo: data.appSettings.schoolLogo !== undefined ? data.appSettings.schoolLogo : get().schoolLogo,
               schoolStamp: data.appSettings.schoolStamp !== undefined ? data.appSettings.schoolStamp : get().schoolStamp,
               messageRemerciement: data.appSettings.messageRemerciement || get().messageRemerciement,
               messageRappel: data.appSettings.messageRappel || get().messageRappel,
               ...(data.appSettings.cycleSchedules ? { cycleSchedules: data.appSettings.cycleSchedules } : {}),
               ...(data.appSettings.tranches ? { tranches: data.appSettings.tranches } : {}),
+              schoolYears: data.schoolYears ? Array.from(new Set([get().schoolYear, ...(data.schoolYears || [])])) : get().schoolYears,
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
           } else {

@@ -25,7 +25,21 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
         return null;
     }
 
-    const payload: any = { replace };
+    let activeYear = store.schoolYear;
+    let activeYears = store.schoolYears;
+    if (!activeYear || !activeYears) {
+        try {
+            const { useStore } = await import('../store/useStore');
+            if (!activeYear) activeYear = useStore.getState().schoolYear;
+            if (!activeYears) activeYears = useStore.getState().schoolYears;
+        } catch {}
+    }
+
+    const payload: any = { 
+        replace,
+        schoolYear: activeYear || undefined,
+        schoolYears: activeYears || undefined
+    };
     
     // N'inclure que les champs fournis dans l'objet store pour éviter d'envoyer des tableaux vides par erreur
     if (store.students !== undefined) payload.students = store.students;
@@ -107,9 +121,12 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
 /**
  * Récupère toutes les données depuis le backend Supabase (Single Source of Truth).
  */
-export async function fetchFromBackend() {
+export async function fetchFromBackend(schoolYear?: string) {
     try {
-        const response = await fetch(`${BACKEND_URL}/api/sync?t=${Date.now()}`, {
+        const url = schoolYear 
+            ? `${BACKEND_URL}/api/sync?schoolYear=${encodeURIComponent(schoolYear)}&t=${Date.now()}`
+            : `${BACKEND_URL}/api/sync?t=${Date.now()}`;
+        const response = await fetch(url, {
             method: 'GET',
             headers: getAuthHeaders(),
         });

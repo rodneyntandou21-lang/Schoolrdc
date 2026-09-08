@@ -5,11 +5,12 @@ import {
   Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
-import { getCurrentSchoolYear } from '../utils/helpers';
+import { getCurrentSchoolYear, SUPPORTED_DIAL_CODES } from '../utils/helpers';
 
 export const Parametres: React.FC = () => {
   const schoolName = useStore((s) => s.schoolName);
   const schoolYear = useStore((s) => s.schoolYear);
+  const paysIndicatif = useStore((s) => s.paysIndicatif);
   const messageRemerciement = useStore((s) => s.messageRemerciement);
   const messageRappel = useStore((s) => s.messageRappel);
   const appName = useStore((s) => s.appName);
@@ -22,6 +23,7 @@ export const Parametres: React.FC = () => {
   const [localRem, setLocalRem] = useState(messageRemerciement);
   const [localRap, setLocalRap] = useState(messageRappel);
   const [localAppName, setLocalAppName] = useState(appName);
+  const [localPaysIndicatif, setLocalPaysIndicatif] = useState(paysIndicatif);
   const [saved, setSaved] = useState(false);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
@@ -133,6 +135,7 @@ export const Parametres: React.FC = () => {
     await updateAllSettings({
       schoolName: localSchool,
       schoolYear: localYear,
+      paysIndicatif: localPaysIndicatif,
       messageRemerciement: localRem,
       messageRappel: localRap,
       appName: localAppName,
@@ -213,6 +216,20 @@ export const Parametres: React.FC = () => {
                             value={localYear}
                             title="L'année scolaire est calculée automatiquement en fonction de la date actuelle."
                         />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                            Pays / Indicatif téléphonique
+                        </label>
+                        <select
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={localPaysIndicatif}
+                            onChange={(e) => setLocalPaysIndicatif(e.target.value)}
+                        >
+                            {SUPPORTED_DIAL_CODES.map((c) => (
+                                <option key={c.code} value={c.code}>{c.label}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

@@ -71,6 +71,8 @@ export interface AppState {
   schoolYears: string[];
   setSchoolYears: (years: string[]) => void;
   addSchoolYear: (year: string) => Promise<void>;
+  paysIndicatif: string;
+  setPaysIndicatif: (indicatif: string) => void;
   messageRemerciement: string;
   setMessageRemerciement: (m: string) => void;
   messageRappel: string;
@@ -79,6 +81,7 @@ export interface AppState {
     appName?: string,
     schoolName?: string,
     schoolYear?: string,
+    paysIndicatif?: string,
     schoolLogo?: string | null,
     schoolStamp?: string | null,
     messageRemerciement?: string,
@@ -612,6 +615,8 @@ export const useStore = create<AppState>()(
       setSchoolYear: (year) => set({ schoolYear: year }),
       schoolYears: [getCurrentSchoolYear()],
       setSchoolYears: (years) => set({ schoolYears: years }),
+      paysIndicatif: '228',
+      setPaysIndicatif: (indicatif) => set({ paysIndicatif: indicatif }),
       addSchoolYear: async (year: string) => {
         const currentYears = get().schoolYears || [];
         if (currentYears.includes(year)) return;
@@ -897,6 +902,7 @@ export const useStore = create<AppState>()(
                 appName: appSettings.appName || 'YZO GESTION',
                 schoolName: appSettings.schoolName || '',
                 schoolYear: appSettings.schoolYear || '',
+                paysIndicatif: appSettings.paysIndicatif || '228',
                 schoolLogo: appSettings.schoolLogo || null,
                 schoolStamp: appSettings.schoolStamp || null,
                 messageRemerciement: appSettings.messageRemerciement || '',
@@ -1000,6 +1006,7 @@ export const useStore = create<AppState>()(
               appName: data.appSettings.appName || get().appName,
               schoolName: data.appSettings.schoolName || get().schoolName,
               schoolYear: get().schoolYear || data.appSettings.schoolYear,
+              paysIndicatif: data.appSettings.paysIndicatif || get().paysIndicatif,
               schoolLogo: data.appSettings.schoolLogo !== undefined ? data.appSettings.schoolLogo : get().schoolLogo,
               schoolStamp: data.appSettings.schoolStamp !== undefined ? data.appSettings.schoolStamp : get().schoolStamp,
               messageRemerciement: data.appSettings.messageRemerciement || get().messageRemerciement,
@@ -1275,6 +1282,7 @@ export const useStore = create<AppState>()(
         students: state.students,
         schoolName: state.schoolName,
         schoolYear: state.schoolYear,
+        paysIndicatif: state.paysIndicatif,
         messageRemerciement: state.messageRemerciement,
         messageRappel: state.messageRappel,
         user: state.user,

@@ -65,13 +65,22 @@ export const formatMontant = (montant: number): string => {
   return new Intl.NumberFormat('fr-FR').format(montant) + ' FCFA';
 };
 
-export const formatPhoneTogo = (phone: string): string => {
+// Indicatifs pays supportés (Togo par défaut, Congo-Brazzaville en option)
+export const SUPPORTED_DIAL_CODES: { code: string; label: string }[] = [
+  { code: '228', label: 'Togo (+228)' },
+  { code: '242', label: 'Congo (+242)' },
+];
+
+export const formatPhoneNumber = (phone: string, dialCode: string = '228'): string => {
   const cleaned = (phone || '').replace(/\D/g, '');
-  if (cleaned.startsWith('228')) {
+  if (cleaned.startsWith(dialCode)) {
     return '+' + cleaned;
   }
-  return '+228' + cleaned;
+  return '+' + dialCode + cleaned;
 };
+
+/** @deprecated Utiliser formatPhoneNumber(phone, dialCode) — conservé pour compatibilité. */
+export const formatPhoneTogo = (phone: string): string => formatPhoneNumber(phone, '228');
 
 export const calculateDashboardStats = (students: Student[]): DashboardStats => {
   const stats: DashboardStats = {
@@ -120,8 +129,8 @@ export const calculateClassStats = (students: Student[]): ClassStats[] => {
   }).filter(c => c.effectif > 0);
 };
 
-export const generateWhatsAppLink = (phone: string, message: string): string => {
-  const formattedPhone = formatPhoneTogo(phone).replace('+', '');
+export const generateWhatsAppLink = (phone: string, message: string, dialCode: string = '228'): string => {
+  const formattedPhone = formatPhoneNumber(phone, dialCode).replace('+', '');
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
 };

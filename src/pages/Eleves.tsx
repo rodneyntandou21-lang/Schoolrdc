@@ -35,12 +35,13 @@ interface ModalProps { student?: Student | null; onClose: () => void }
 const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
+  const paysIndicatif = useStore((s) => s.paysIndicatif);
 
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
     prenom: student?.prenom ?? '',
     classe: student?.classe ?? CLASS_CONFIG[0].name,
-    telephone: student?.telephone ?? '+228',
+    telephone: student?.telephone ?? `+${paysIndicatif}`,
     sexe: (student?.sexe ?? 'M') as 'M' | 'F',
     redoublant: student?.redoublant ?? false,
     ecoleProvenance: student?.ecoleProvenance ?? '',
@@ -133,9 +134,9 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
               </label>
               <input 
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white" 
-                value={form.telephone} 
-                onChange={(e) => setForm({ ...form, telephone: e.target.value })} 
-                placeholder="+228" 
+                value={form.telephone}
+                onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                placeholder={`+${paysIndicatif}`}
               />
             </div>
             <div>

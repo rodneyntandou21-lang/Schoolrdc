@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const Reports = () => {
-  const { students, settings } = useStore();
+  const { students, settings, paysIndicatif } = useStore();
   const [selectedClasse, setSelectedClasse] = useState('');
 
   const allClasses = [...CLASSES_BY_CYCLE.Primaire, ...CLASSES_BY_CYCLE.Collège, ...CLASSES_BY_CYCLE.Lycée];
@@ -41,7 +41,7 @@ export const Reports = () => {
 
     // Open first one immediately
     if (messages.length > 0) {
-      window.open(generateWhatsAppLink(messages[0].phone, messages[0].message), '_blank');
+      window.open(generateWhatsAppLink(messages[0].phone, messages[0].message, paysIndicatif), '_blank');
       alert(`${messages.length} messages à envoyer. Le premier est ouvert. Copiez les autres numéros depuis la liste.`);
     }
   };
@@ -151,7 +151,7 @@ export const Reports = () => {
                             <Receipt className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => window.open(generateWhatsAppLink(student.telephone, `Message pour ${student.nom}`), '_blank')}
+                            onClick={() => window.open(generateWhatsAppLink(student.telephone, `Message pour ${student.nom}`, paysIndicatif), '_blank')}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                             title="WhatsApp"
                           >
@@ -233,7 +233,7 @@ export const Reports = () => {
                         <button
                           onClick={() => {
                             const message = `Bonjour,\n\nConcernant ${student.nom} ${student.prenom} (${student.classe}):\nReste à payer: ${formatMontant(student.restant)}\n\n${settings.messageRappel}\n\n${settings.nomEcole}`;
-                            window.open(generateWhatsAppLink(student.telephone, message), '_blank');
+                            window.open(generateWhatsAppLink(student.telephone, message, paysIndicatif), '_blank');
                           }}
                           className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                           title="WhatsApp"

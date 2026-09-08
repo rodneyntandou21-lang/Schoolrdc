@@ -4,6 +4,7 @@
 import React, { Suspense, lazy } from 'react';
 import { useStore } from './store/useStore';
 import { Login } from './components/Login';
+import { Landing } from './pages/Landing';
 import { Layout } from './components/Layout';
 import { AnnouncementPopup } from './components/AnnouncementPopup';
 import { webPushService } from './services/webPushService';
@@ -111,6 +112,7 @@ const PageContent: React.FC = () => {
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
+  const [authScreen, setAuthScreen] = React.useState<'landing' | 'login' | 'register'>('landing');
 
   // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
@@ -164,7 +166,20 @@ export function App() {
   }, []);
 
   if (!isAuthenticated) {
-    return <Login />;
+    if (authScreen === 'landing') {
+      return (
+        <Landing
+          onLogin={() => setAuthScreen('login')}
+          onRegister={() => setAuthScreen('register')}
+        />
+      );
+    }
+    return (
+      <Login
+        initialMode={authScreen === 'register' ? 'register' : 'login'}
+        onBack={() => setAuthScreen('landing')}
+      />
+    );
   }
 
   return (

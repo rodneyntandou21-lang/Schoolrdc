@@ -55,13 +55,18 @@ const BackgroundSlideshow: React.FC = () => {
 
 // ── COMPOSANT PRINCIPAL ──────────────────────────────────────
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  initialMode?: 'login' | 'register';
+  onBack?: () => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) => {
   const login = useStore((s) => s.login);
   const appName = "GestioSchool";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [view, setView] = useState<'login' | 'register' | 'link'>('login');
-  const [isRightPanelActive, setIsRightPanelActive] = useState(false);
+  const [view, setView] = useState<'login' | 'register' | 'link'>(initialMode === 'register' ? 'register' : 'login');
+  const [isRightPanelActive, setIsRightPanelActive] = useState(initialMode === 'register');
   
   // Auth Form States
   const [username, setUsername] = useState('');
@@ -253,6 +258,17 @@ export const Login: React.FC = () => {
             z-index: 10;
         }
       `}</style>
+
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Retour à l'accueil"
+          className="absolute top-5 left-5 z-20 flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-amber-600 transition-colors"
+        >
+          ← Retour à l'accueil
+        </button>
+      )}
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (

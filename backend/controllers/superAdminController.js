@@ -78,8 +78,9 @@ const schoolCreateSchema = Joi.object({
     name: Joi.string().trim().required().messages({
         'any.required': 'Le nom de l\'établissement est requis.'
     }),
-    slug: Joi.string().trim().lowercase().required().messages({
-        'any.required': 'Le slug de l\'établissement est requis.'
+    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/).required().messages({
+        'any.required': 'Le slug de l\'établissement est requis.',
+        'string.pattern.base': 'Le slug doit être en minuscules alphanumériques avec tirets uniquement (ex: mon-ecole).'
     }),
     address: Joi.string().allow('', null),
     phone: Joi.string().allow('', null),

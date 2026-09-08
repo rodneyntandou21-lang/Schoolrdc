@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const { supabase } = require('./utils/supabase');
 
 const { PORT } = require('./config');
@@ -25,6 +26,24 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── Rate limiting — protection brute-force ────────────────────
+// Limite globale généreuse sur l'API, puis limite bien plus stricte sur /api/auth
+// (login/register) où le brute-force de mots de passe est le vrai risque.
+app.use('/api', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+}));
+
+app.use('/api/auth', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.' },
+}));
 
 // Logger simple des requêtes
 app.use((req, res, next) => {

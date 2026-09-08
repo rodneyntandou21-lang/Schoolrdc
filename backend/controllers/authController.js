@@ -5,6 +5,42 @@ const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 const Joi = require('joi');
 const crypto = require('crypto');
 
+// ── Verrouillage de compte après échecs de connexion répétés ──
+// Complète le rate-limit par IP (server.js) par une protection par compte :
+// une IP peut changer, mais un compte ciblé doit rester protégé. En mémoire
+// (pas de Redis en place) — acceptable pour un seul service Render.
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const failedLoginAttempts = new Map(); // key -> { count, lockedUntil }
+
+function loginAttemptKey(schoolSlug, telephone) {
+    return `${schoolSlug || 'global'}:${telephone.trim().toLowerCase()}`;
+}
+
+function isAccountLocked(key) {
+    const entry = failedLoginAttempts.get(key);
+    if (!entry || !entry.lockedUntil) return 0;
+    const remainingMs = entry.lockedUntil - Date.now();
+    if (remainingMs <= 0) {
+        failedLoginAttempts.delete(key);
+        return 0;
+    }
+    return remainingMs;
+}
+
+function registerFailedLogin(key) {
+    const entry = failedLoginAttempts.get(key) || { count: 0, lockedUntil: null };
+    entry.count += 1;
+    if (entry.count >= MAX_LOGIN_ATTEMPTS) {
+        entry.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    }
+    failedLoginAttempts.set(key, entry);
+}
+
+function clearFailedLogins(key) {
+    failedLoginAttempts.delete(key);
+}
+
 // Joi validation schema for Parent registration
 const parentRegisterSchema = Joi.object({
     nom: Joi.string().trim().required().messages({
@@ -17,8 +53,9 @@ const parentRegisterSchema = Joi.object({
         'string.min': 'Le mot de passe doit contenir au moins 6 caractères.',
         'any.required': 'Le mot de passe est requis.'
     }),
-    school_slug: Joi.string().trim().required().messages({
-        'any.required': 'Le code de l\'établissement (school_slug) est requis.'
+    school_slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/).required().messages({
+        'any.required': 'Le code de l\'établissement (school_slug) est requis.',
+        'string.pattern.base': 'Code établissement invalide.'
     }),
     accepted_terms: Joi.boolean().valid(true).required().messages({
         'any.only': 'Vous devez accepter les conditions d\'utilisation.'
@@ -121,6 +158,14 @@ async function login(req, res) {
         return res.status(400).json({ error: 'Champs requis : telephone, password.' });
     }
 
+    const attemptKey = loginAttemptKey(schoolSlug, telephone);
+    const lockedMs = isAccountLocked(attemptKey);
+    if (lockedMs > 0) {
+        return res.status(429).json({
+            error: `Trop de tentatives échouées. Réessayez dans ${Math.ceil(lockedMs / 60000)} minute(s).`
+        });
+    }
+
     try {
         console.log(`🔍 [Auth] Tentative login pour: ${telephone.trim()}`);
 
@@ -134,6 +179,7 @@ async function login(req, res) {
         if (superadmin) {
             const valid = await bcrypt.compare(password, superadmin.password);
             if (valid) {
+                clearFailedLogins(attemptKey);
                 console.log(`✅ [Auth] SuperAdmin identifié !`);
                 const token = jwt.sign(
                     { id: superadmin.id, nom: superadmin.nom, role: 'superadmin', schoolSlug: null },
@@ -146,10 +192,11 @@ async function login(req, res) {
                     user: { id: superadmin.id, nom: superadmin.nom, telephone: superadmin.telephone, role: 'superadmin' }
                 });
             } else {
+                registerFailedLogin(attemptKey);
                 return res.status(401).json({ error: 'Mot de passe SuperAdmin incorrect.' });
             }
         }
-        
+
         // ── 2. Sinon, l'utilisateur DOIT avoir sélectionné une école ──
         if (!schoolSlug) {
             return res.status(400).json({ error: 'Veuillez sélectionner votre établissement pour vous connecter.' });
@@ -181,14 +228,17 @@ async function login(req, res) {
             .single();
 
         if (error || !user) {
+            registerFailedLogin(attemptKey);
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
 
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) {
+            registerFailedLogin(attemptKey);
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
 
+        clearFailedLogins(attemptKey);
         console.log(`✅ [Auth] Utilisateur trouvé: ${user.nom} (Rôle: ${user.role}) - École: ${schoolSlug}`);
 
         const token = jwt.sign(

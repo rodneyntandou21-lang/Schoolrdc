@@ -273,6 +273,14 @@ export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
             </div>
             <span className="font-bold text-white text-sm">GestioSchool</span>
           </div>
+          <a
+            href="/guide-utilisateur-gestioschool.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-slate-300 hover:text-white transition-colors underline underline-offset-2"
+          >
+            Guide utilisateur (PDF)
+          </a>
           <p className="text-xs text-center">© {new Date().getFullYear()} GestioSchool. Tous droits réservés.</p>
         </div>
       </footer>

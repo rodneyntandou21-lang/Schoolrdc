@@ -1,15 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { BulletinTogoPDF } from '../components/pdf/BulletinTogoPDF';
+import { BulletinPDF } from '../components/pdf/BulletinPDF';
 import { calculerBulletinsClasse, BulletinEleveResultat } from '../utils/bulletinCalculations';
 import { useReactToPrint } from 'react-to-print';
 import { FileSpreadsheet, Printer, Users, Award, ShieldCheck } from 'lucide-react';
 
 export const Bulletins: React.FC = () => {
-    const { 
+    const {
         currentPeriode, students, matieres, classeMatieres, notes,
-        schoolName, schoolLogo, schoolStamp, schoolYear 
+        schoolName, schoolLogo, schoolStamp, schoolYear, paysIndicatif
     } = useStore();
+    // Format officiel DRE uniquement vérifié pour le Togo (+228) — les autres
+    // pays (ex: Congo +242) utilisent le bulletin générique en attendant un
+    // modèle officiel confirmé.
+    const BulletinComponent = paysIndicatif === '228' ? BulletinTogoPDF : BulletinPDF;
 
     const classesList = Array.from(new Set(students.map(s => s.classe))).sort();
     const [selectedClasse, setSelectedClasse] = useState('');
@@ -137,7 +142,7 @@ export const Bulletins: React.FC = () => {
                 <div ref={printRef} className="print-container">
                     {bulletinsCalcules.map((b) => (
                         <div key={b.eleve.id} className="page-break w-[210mm] h-[297mm] overflow-hidden bg-white mx-auto box-border" style={{ pageBreakAfter: 'always' }}>
-                            <BulletinTogoPDF
+                            <BulletinComponent
                                 data={b}
                                 schoolName={schoolName}
                                 schoolLogo={schoolLogo}

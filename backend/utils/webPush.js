@@ -7,9 +7,19 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:admin@nomade-corp.com';
 
+// La librairie web-push valide le format des clés de façon synchrone et lève
+// une exception si elles sont invalides (pas seulement si absentes) — sans ce
+// try/catch, une clé VAPID mal configurée fait planter tout le serveur au
+// démarrage (require() de ce module), pas seulement désactiver le push.
+let vapidConfigured = false;
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-    console.log('✅ Web Push configuré avec succès');
+    try {
+        webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+        vapidConfigured = true;
+        console.log('✅ Web Push configuré avec succès');
+    } catch (err) {
+        console.error('❌ Web Push : clés VAPID invalides, notifications désactivées —', err.message);
+    }
 } else {
     console.warn('⚠️ Web Push non configuré: VAPID_PUBLIC_KEY ou VAPID_PRIVATE_KEY manquant.');
 }
@@ -25,8 +35,8 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
  */
 async function sendPushNotification(userId, schoolSlug, title, body, type = 'general', url = '/') {
     try {
-        if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-            console.warn('⚠️ Web Push : clés VAPID non configurées. Notification ignorée.');
+        if (!vapidConfigured) {
+            console.warn('⚠️ Web Push : clés VAPID non configurées ou invalides. Notification ignorée.');
             return;
         }
 

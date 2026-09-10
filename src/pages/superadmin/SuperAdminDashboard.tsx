@@ -128,7 +128,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Nom de l'établissement *</label>
                 <input type="text" value={form.name} onChange={e => handleNameChange(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ex: Lycée Excellence Lomé" required />
+                  placeholder="ex: Lycée Excellence Brazzaville" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Slug URL *</label>
@@ -136,14 +136,14 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                   <span className="px-3 text-slate-500 text-sm">/</span>
                   <input type="text" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
                     className="flex-1 bg-transparent px-2 py-2.5 text-white placeholder-slate-500 focus:outline-none"
-                    placeholder="lycee-excellence-lome" required />
+                    placeholder="lycee-excellence-brazzaville" required />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Adresse</label>
                 <input type="text" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Adressez à Lomé" />
+                  placeholder="Adressez à Brazzaville" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Téléphone</label>

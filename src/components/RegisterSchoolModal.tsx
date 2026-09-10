@@ -147,7 +147,7 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Adresse physique</label>
                 <input
-                  type="text" placeholder="ex: Lomé / Brazzaville"
+                  type="text" placeholder="ex: Brazzaville"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                   value={address} onChange={(e) => setAddress(e.target.value)}
                 />

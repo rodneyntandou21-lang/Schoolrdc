@@ -11,10 +11,8 @@ import {
 interface LandingProps {
   onLogin: () => void;
   onRegister: () => void;
+  onRegisterSchool: () => void;
 }
-
-const CONTACT_EMAIL = 'rodneyntandou21@gmail.com';
-const CONTACT_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Demande de démo GestioSchool')}`;
 
 const FEATURES: { icon: React.ElementType; title: string; description: string; points: string[] }[] = [
   {
@@ -73,7 +71,7 @@ const NavLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, 
   </a>
 );
 
-export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
+export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister, onRegisterSchool }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   return (
@@ -103,7 +101,7 @@ export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
 
           <div className="hidden lg:flex items-center gap-3">
             <button onClick={onLogin} className="btn btn-ghost" style={{ color: '#fff' }}>Se connecter</button>
-            <a href={CONTACT_HREF} className="btn btn-primary">Demander une démo</a>
+            <button onClick={onRegisterSchool} className="btn btn-primary">Lancer mon école</button>
           </div>
 
           <button
@@ -123,7 +121,7 @@ export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
             <NavLink href="#parents">Espace Parents</NavLink>
             <div className="flex flex-col gap-2 mt-2">
               <button onClick={onLogin} className="btn btn-secondary w-full">Se connecter</button>
-              <a href={CONTACT_HREF} className="btn btn-primary w-full">Demander une démo</a>
+              <button onClick={onRegisterSchool} className="btn btn-primary w-full">Lancer mon école</button>
             </div>
           </div>
         )}
@@ -142,9 +140,9 @@ export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
               GestioSchool centralise le quotidien de votre école, accessible depuis n'importe quel appareil.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a href={CONTACT_HREF} className="btn btn-primary btn-xl">
-                Demander une démo <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </a>
+              <button onClick={onRegisterSchool} className="btn btn-primary btn-xl">
+                Lancer mon école <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
               <button onClick={onLogin} className="btn btn-secondary btn-xl" style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', borderColor: 'rgba(255,255,255,0.15)' }}>
                 J'ai déjà un compte
               </button>
@@ -257,7 +255,7 @@ export const Landing: React.FC<LandingProps> = ({ onLogin, onRegister }) => {
               Prêt à moderniser la gestion de votre établissement ?
             </h2>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a href={CONTACT_HREF} className="btn btn-primary btn-xl">Demander une démo</a>
+              <button onClick={onRegisterSchool} className="btn btn-primary btn-xl">Lancer mon école</button>
               <button onClick={onLogin} className="btn btn-secondary btn-xl">Se connecter</button>
             </div>
           </div>

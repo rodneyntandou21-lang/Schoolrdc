@@ -4,6 +4,41 @@ const { supabase } = require('../utils/supabase');
 const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 const Joi = require('joi');
 const crypto = require('crypto');
+const { provisionSchool } = require('../utils/schoolProvisioning');
+
+// Joi validation schema for public school self-registration
+const schoolRegisterSchema = Joi.object({
+    name: Joi.string().trim().required().messages({
+        'any.required': "Le nom complet de l'établissement est requis."
+    }),
+    acronym: Joi.string().trim().allow('', null), // UX only, non persisté pour l'instant
+    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/).required().messages({
+        'any.required': "Le code / identifiant URL de l'établissement est requis.",
+        'string.pattern.base': 'Le code doit être en minuscules alphanumériques avec tirets uniquement (ex: sainte-marie).'
+    }),
+    address: Joi.string().allow('', null),
+    phone: Joi.string().allow('', null),
+    email: Joi.string().email().allow('', null).messages({
+        'string.email': "L'adresse email de l'établissement est invalide."
+    }),
+    admin_nom: Joi.string().trim().required().messages({
+        'any.required': 'Le nom complet du directeur est requis.'
+    }),
+    admin_telephone: Joi.string().trim().required().messages({
+        'any.required': 'Le numéro de téléphone du directeur est requis.'
+    }),
+    admin_password: Joi.string().min(6).required().messages({
+        'string.min': 'Le mot de passe doit contenir au moins 6 caractères.',
+        'any.required': 'Le mot de passe est requis.'
+    }),
+    accepted_terms: Joi.boolean().valid(true).required().messages({
+        'any.only': "Vous devez accepter les conditions d'utilisation."
+    }),
+    accepted_privacy_policy: Joi.boolean().valid(true).required().messages({
+        'any.only': 'Vous devez accepter la politique de confidentialité.'
+    }),
+    marketing_consent: Joi.boolean().default(false)
+});
 
 // ── Verrouillage de compte après échecs de connexion répétés ──
 // Complète le rate-limit par IP (server.js) par une protection par compte :
@@ -147,6 +182,34 @@ async function register(req, res) {
     } catch (err) {
         console.error('Register Error:', err.message);
         return res.status(500).json({ error: 'Erreur lors de la création du compte : ' + err.message });
+    }
+}
+
+// ── Register School (Auto-inscription publique — Directeur) ────
+async function registerSchool(req, res) {
+    const { value: validatedData, error: validationError } = schoolRegisterSchema.validate(req.body, { abortEarly: false });
+
+    if (validationError) {
+        return res.status(400).json({ error: validationError.details.map(d => d.message).join(', ') });
+    }
+
+    try {
+        const ipHash = getIpHash(req);
+        const { school, adminUser } = await provisionSchool(
+            { ...validatedData, signup_ip_hash: ipHash },
+            { trialDays: 30 }
+        );
+
+        console.log(`🏫 Auto-inscription établissement: ${school.name} (${school.slug}), Directeur: ${adminUser.nom}`);
+
+        return res.status(201).json({
+            message: `Établissement "${school.name}" inscrit avec succès. Essai gratuit de 30 jours activé.`,
+            school: { name: school.name, slug: school.slug },
+            admin: { nom: adminUser.nom, telephone: adminUser.telephone, role: adminUser.role }
+        });
+    } catch (err) {
+        console.error('RegisterSchool Error:', err.message);
+        return res.status(err.status || 500).json({ error: err.status ? err.message : "Erreur lors de l'inscription de l'établissement : " + err.message });
     }
 }
 
@@ -314,4 +377,4 @@ async function updatePushToken(req, res) {
     }
 }
 
-module.exports = { register, login, deleteSelfAccount, updatePushToken };
+module.exports = { register, registerSchool, login, deleteSelfAccount, updatePushToken };

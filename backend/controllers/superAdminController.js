@@ -5,6 +5,7 @@
 const { supabase } = require('../utils/supabase');
 const Joi = require('joi');
 const crypto = require('crypto');
+const { provisionSchool } = require('../utils/schoolProvisioning');
 
 const PRICE_PER_STUDENT = 2000; // FCFA
 
@@ -121,77 +122,11 @@ async function createSchool(req, res) {
     }
 
     try {
-        const cleanSlug = validatedData.slug;
-
-        // Vérifier si le slug est déjà utilisé
-        const { data: existing } = await supabase
-            .from('schools')
-            .select('id')
-            .eq('slug', cleanSlug)
-            .single();
-
-        if (existing) {
-            return res.status(409).json({ error: `Le slug "${cleanSlug}" est déjà utilisé par une autre école.` });
-        }
-
         const ipHash = getIpHash(req);
-        const consentedAt = new Date().toISOString();
-
-        // 1. Créer l'école (Mass assignment protection)
-        const schoolPayload = {
-            name: validatedData.name.trim(),
-            slug: cleanSlug,
-            address: validatedData.address || null,
-            phone: validatedData.phone || null,
-            email: validatedData.email || null,
-            status: 'trial',
-            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // +2 mois
-            accepted_terms: validatedData.accepted_terms,
-            accepted_privacy_policy: validatedData.accepted_privacy_policy,
-            marketing_consent: validatedData.marketing_consent,
-            consented_at: consentedAt,
-            signup_ip_hash: ipHash
-        };
-
-        const { data: school, error: schoolErr } = await supabase
-            .from('schools')
-            .insert(schoolPayload)
-            .select()
-            .single();
-
-        if (schoolErr) throw schoolErr;
-
-        // 2. Créer le jeu de tables avec l'appel RPC
-        const { error: rpcErr } = await supabase.rpc('create_school_tables', { school_slug: cleanSlug });
-        if (rpcErr) throw rpcErr;
-
-        // Attendre que la base recharge son schéma (1s par sécurité)
-        await new Promise(r => setTimeout(r, 1000));
-
-        // 3. Créer le compte SchoolAdmin (directeur) dans SA NOUVELLE TABLE
-        const bcrypt = require('bcryptjs');
-        const hashed = await bcrypt.hash(validatedData.admin_password, 10);
-
-        // Mass assignment protection
-        const adminPayload = {
-            nom: validatedData.admin_nom.trim(),
-            telephone: validatedData.admin_telephone.trim(),
-            password: hashed,
-            role: 'directeur',
-            accepted_terms: validatedData.accepted_terms,
-            accepted_privacy_policy: validatedData.accepted_privacy_policy,
-            marketing_consent: validatedData.marketing_consent,
-            consented_at: consentedAt,
-            signup_ip_hash: ipHash
-        };
-
-        const { data: adminUser, error: adminErr } = await supabase
-            .from(`profiles_${cleanSlug}`)
-            .insert(adminPayload)
-            .select()
-            .single();
-
-        if (adminErr) throw adminErr;
+        const { school, adminUser } = await provisionSchool(
+            { ...validatedData, signup_ip_hash: ipHash },
+            { trialDays: 60 }
+        );
 
         console.log(`🏫 Nouvelle école créée: ${school.name} (${school.slug}), Admin: ${adminUser.nom}`);
 
@@ -202,7 +137,7 @@ async function createSchool(req, res) {
         });
     } catch (err) {
         console.error('SuperAdmin createSchool Error:', err.message);
-        return res.status(500).json({ error: 'Erreur création école: ' + err.message });
+        return res.status(err.status || 500).json({ error: err.status ? err.message : 'Erreur création école: ' + err.message });
     }
 }
 

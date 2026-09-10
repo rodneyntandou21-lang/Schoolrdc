@@ -112,7 +112,7 @@ const PageContent: React.FC = () => {
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
-  const [authScreen, setAuthScreen] = React.useState<'landing' | 'login' | 'register'>('landing');
+  const [authScreen, setAuthScreen] = React.useState<'landing' | 'login' | 'register' | 'register-school'>('landing');
 
   // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
@@ -171,12 +171,13 @@ export function App() {
         <Landing
           onLogin={() => setAuthScreen('login')}
           onRegister={() => setAuthScreen('register')}
+          onRegisterSchool={() => setAuthScreen('register-school')}
         />
       );
     }
     return (
       <Login
-        initialMode={authScreen === 'register' ? 'register' : 'login'}
+        initialMode={authScreen === 'register' || authScreen === 'register-school' ? authScreen : 'login'}
         onBack={() => setAuthScreen('landing')}
       />
     );

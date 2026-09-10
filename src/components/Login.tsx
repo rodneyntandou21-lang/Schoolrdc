@@ -5,8 +5,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { parentApi } from '../services/parentApi';
 import { LinkStudent } from './LinkStudent';
-import { GraduationCap, Lock, User, Phone, CheckCircle, Store } from 'lucide-react';
+import { GraduationCap, Lock, User, Phone, Mail, CheckCircle, Store, Eye, EyeOff, Building2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import { RegisterSchoolModal } from './RegisterSchoolModal';
 
 // ── Images de fond (Mobile uniquement) ──
 import bgImage1 from '../assets/login-bg1.jpg';
@@ -56,7 +57,7 @@ const BackgroundSlideshow: React.FC = () => {
 // ── COMPOSANT PRINCIPAL ──────────────────────────────────────
 
 interface LoginProps {
-  initialMode?: 'login' | 'register';
+  initialMode?: 'login' | 'register' | 'register-school';
   onBack?: () => void;
 }
 
@@ -76,6 +77,8 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) =
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isRegisterSchoolOpen, setIsRegisterSchoolOpen] = useState(initialMode === 'register-school');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Consent States
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -338,12 +341,26 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) =
                   {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
               </select>
 
-              <input type="text" placeholder="Utilisateur / Téléphone" className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
-              <input type="password" placeholder="Mot de passe" className="auth-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input
+                type={selectedSchool === '' ? 'email' : 'text'}
+                placeholder={selectedSchool === '' ? 'Adresse Email (Gmail)' : 'Utilisateur / Téléphone'}
+                className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required
+              />
+              <div className="relative w-full">
+                <input type={showPassword ? 'text' : 'password'} placeholder="Mot de passe" className="auth-input pr-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               <div className="flex items-center justify-between w-full mt-2 text-xs px-1">
                 <a href="#" className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</a>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsPrivacyOpen(true)}
                   className="text-slate-400 hover:text-amber-600 underline cursor-pointer"
                 >
@@ -358,6 +375,13 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) =
               )}
               {error && <div className="text-rose-500 text-xs mt-2 font-bold">{error}</div>}
               <button className="auth-button" type="submit" disabled={loading}>{loading ? 'Connexion...' : 'Se connecter'}</button>
+              <button
+                type="button"
+                onClick={() => setIsRegisterSchoolOpen(true)}
+                className="w-full mt-3 py-3 bg-slate-900 text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition"
+              >
+                <Building2 className="w-3.5 h-3.5" /> Directeur ? Inscrivez votre école
+              </button>
             </form>
           </div>
 
@@ -421,12 +445,28 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) =
                         </div>
                     )}
                     <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <input type="tel" placeholder="Téléphone" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                        {view === 'login' && selectedSchool === '' ? (
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                        ) : (
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                        )}
+                        <input
+                          type={view === 'login' && selectedSchool === '' ? 'email' : 'tel'}
+                          placeholder={view === 'login' && selectedSchool === '' ? 'Adresse Email (Gmail)' : 'Téléphone'}
+                          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={username} onChange={(e) => setUsername(e.target.value)} required
+                        />
                     </div>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <input type="password" placeholder="Mot de passe" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                        <input type={showPassword ? 'text' : 'password'} placeholder="Mot de passe" className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+                          aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                     </div>
 
                     {view === 'login' ? (
@@ -489,23 +529,47 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login', onBack }) =
                     <button type="button" onClick={() => setView(view === 'login' ? 'register' : 'login')} className="w-full py-2 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-2">
                         {view === 'login' ? "Nouveau ? Créer un compte" : "Déjà un compte ? Se connecter"}
                     </button>
+
+                    {view === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => setIsRegisterSchoolOpen(true)}
+                        className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 mt-1"
+                      >
+                        <Building2 className="w-3.5 h-3.5" /> Directeur ? Inscrivez votre école
+                      </button>
+                    )}
                 </form>
+
+                {/* Footer inline (suit le scroll, ne recouvre pas les boutons) */}
+                <div className="flex flex-col items-center gap-1 mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 whitespace-nowrap">
+                  <span>© {new Date().getFullYear()} {appName} • Éducation Connectée</span>
+                  <button
+                    onClick={() => setIsPrivacyOpen(true)}
+                    className="hover:text-amber-500 transition-colors underline cursor-pointer"
+                  >
+                    Confidentialité
+                  </button>
+                </div>
             </div>
         </>
       )}
 
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-20 text-[10px] font-black uppercase tracking-[0.3em] ${isMobile ? 'text-white/60' : 'text-slate-400'} whitespace-nowrap`}>
-        <span>© {new Date().getFullYear()} {appName} • Éducation Connectée</span>
-        <span className="hidden sm:inline">•</span>
-        <button 
-          onClick={() => setIsPrivacyOpen(true)}
-          className="hover:text-amber-500 transition-colors underline cursor-pointer"
-        >
-          Confidentialité
-        </button>
-      </div>
+      {!isMobile && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-20 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 whitespace-nowrap">
+          <span>© {new Date().getFullYear()} {appName} • Éducation Connectée</span>
+          <span className="hidden sm:inline">•</span>
+          <button
+            onClick={() => setIsPrivacyOpen(true)}
+            className="hover:text-amber-500 transition-colors underline cursor-pointer"
+          >
+            Confidentialité
+          </button>
+        </div>
+      )}
 
       <PrivacyPolicyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
+      {isRegisterSchoolOpen && <RegisterSchoolModal onClose={() => setIsRegisterSchoolOpen(false)} />}
     </div>
   );
 };

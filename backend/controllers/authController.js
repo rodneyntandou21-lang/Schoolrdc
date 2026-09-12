@@ -128,8 +128,14 @@ async function register(req, res) {
         if (!school) {
             return res.status(404).json({ error: "Établissement inconnu." });
         }
-        if (school.status === 'suspended') {
-            return res.status(403).json({ error: "L'établissement est suspendu." });
+        if (school.status !== 'approved') {
+            const messages = {
+                pending: "Cet établissement est en attente d'approbation par la plateforme et n'accepte pas encore d'inscriptions.",
+                rejected: "Cet établissement n'a pas été approuvé par la plateforme.",
+                suspended: "L'établissement est suspendu.",
+                archived: "Cet établissement n'est plus actif."
+            };
+            return res.status(403).json({ error: messages[school.status] || "Cet établissement n'accepte pas d'inscriptions actuellement." });
         }
 
         // Vérifier si existant
@@ -197,14 +203,14 @@ async function registerSchool(req, res) {
         const ipHash = getIpHash(req);
         const { school, adminUser } = await provisionSchool(
             { ...validatedData, signup_ip_hash: ipHash },
-            { trialDays: 30 }
+            { trialDays: 30, initialStatus: 'pending' }
         );
 
-        console.log(`🏫 Auto-inscription établissement: ${school.name} (${school.slug}), Directeur: ${adminUser.nom}`);
+        console.log(`🏫 Nouvelle demande d'inscription (en attente d'approbation): ${school.name} (${school.slug}), Directeur: ${adminUser.nom}`);
 
         return res.status(201).json({
-            message: `Établissement "${school.name}" inscrit avec succès. Essai gratuit de 30 jours activé.`,
-            school: { name: school.name, slug: school.slug },
+            message: `Demande envoyée pour "${school.name}". Un administrateur de la plateforme doit approuver votre établissement avant que vous puissiez vous connecter.`,
+            school: { name: school.name, slug: school.slug, status: school.status },
             admin: { nom: adminUser.nom, telephone: adminUser.telephone, role: adminUser.role }
         });
     } catch (err) {
@@ -276,10 +282,19 @@ async function login(req, res) {
             return res.status(404).json({ error: 'Établissement introuvable.' });
         }
 
+        if (school.status === 'pending') {
+            return res.status(403).json({ error: "Votre établissement est en attente d'approbation par l'administrateur de la plateforme. Vous serez notifié dès que votre compte sera validé." });
+        }
+        if (school.status === 'rejected') {
+            return res.status(403).json({ error: "Votre demande d'établissement n'a pas été approuvée par la plateforme. Contactez l'administrateur pour plus d'informations." });
+        }
         if (school.status === 'suspended') {
             return res.status(403).json({ error: "L'accès à cet établissement est suspendu." });
         }
-        if (school.status === 'trial' && new Date(school.trial_ends_at) < new Date()) {
+        if (school.status === 'archived') {
+            return res.status(403).json({ error: "Cet établissement n'est plus actif." });
+        }
+        if (school.status === 'approved' && school.trial_ends_at && new Date(school.trial_ends_at) < new Date()) {
             return res.status(402).json({ error: 'trial_expired', message: "La période d'essai est terminée." });
         }
 

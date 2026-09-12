@@ -69,7 +69,7 @@ app.get('/api/schools', async (req, res) => {
         const { data: schools, error } = await supabase
             .from('schools')
             .select('slug, name, logo_url')
-            .in('status', ['active', 'trial'])
+            .in('status', ['approved'])
             .order('name');
         if (error) throw error;
         res.json(schools);

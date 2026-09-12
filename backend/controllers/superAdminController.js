@@ -45,7 +45,7 @@ async function getAllSchools(req, res) {
                     student_count: studentCount || 0,
                     user_count: userCount || 0,
                     revenue: (studentCount || 0) * PRICE_PER_STUDENT,
-                    trial_days_left: school.status === 'trial'
+                    trial_days_left: (school.status === 'approved' && school.trial_ends_at)
                         ? Math.max(0, Math.ceil((new Date(school.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
                         : 0
                 };
@@ -60,9 +60,11 @@ async function getAllSchools(req, res) {
             schools: schoolsWithStats,
             summary: {
                 total_schools: schools.length,
-                active_schools: schools.filter(s => s.status === 'active').length,
-                trial_schools: schools.filter(s => s.status === 'trial').length,
+                pending_schools: schools.filter(s => s.status === 'pending').length,
+                approved_schools: schools.filter(s => s.status === 'approved').length,
+                rejected_schools: schools.filter(s => s.status === 'rejected').length,
                 suspended_schools: schools.filter(s => s.status === 'suspended').length,
+                archived_schools: schools.filter(s => s.status === 'archived').length,
                 total_students: totalStudents,
                 total_revenue: totalRevenue,
                 price_per_student: PRICE_PER_STUDENT
@@ -125,7 +127,7 @@ async function createSchool(req, res) {
         const ipHash = getIpHash(req);
         const { school, adminUser } = await provisionSchool(
             { ...validatedData, signup_ip_hash: ipHash },
-            { trialDays: 60 }
+            { trialDays: 60, initialStatus: 'approved', approvedBy: req.user.id }
         );
 
         console.log(`🏫 Nouvelle école créée: ${school.name} (${school.slug}), Admin: ${adminUser.nom}`);
@@ -142,13 +144,23 @@ async function createSchool(req, res) {
 }
 
 // ── PATCH /api/superadmin/schools/:id/status ───────────────────
-// Activer, suspendre, ou passer en mode essai une école
+// Suspendre, réactiver, ou archiver une école déjà approuvée.
+// Pour approuver/rejeter une demande en attente, voir approveSchool / rejectSchool.
+const VALID_STATUSES = ['pending', 'approved', 'rejected', 'suspended', 'archived'];
+const STATUS_LABELS = {
+    pending: '⏳ mise en attente',
+    approved: '✅ approuvée',
+    rejected: '⛔ rejetée',
+    suspended: '🚫 suspendue',
+    archived: '📦 archivée'
+};
+
 async function updateSchoolStatus(req, res) {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['active', 'suspended', 'trial'].includes(status)) {
-        return res.status(400).json({ error: 'Statut invalide. Valeurs: active, suspended, trial' });
+    if (!VALID_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Statut invalide. Valeurs: ${VALID_STATUSES.join(', ')}` });
     }
 
     try {
@@ -161,7 +173,7 @@ async function updateSchoolStatus(req, res) {
 
         if (error) throw error;
 
-        const action = status === 'active' ? '✅ activée' : status === 'suspended' ? '🚫 suspendue' : '⏳ en essai';
+        const action = STATUS_LABELS[status];
         console.log(`🏫 École "${school.name}" ${action} par le SuperAdmin`);
 
         return res.json({
@@ -171,6 +183,95 @@ async function updateSchoolStatus(req, res) {
     } catch (err) {
         console.error('SuperAdmin updateStatus Error:', err.message);
         return res.status(500).json({ error: 'Erreur mise à jour statut: ' + err.message });
+    }
+}
+
+// ── POST /api/superadmin/schools/:id/approve ────────────────────
+// Approuve un établissement en attente (auto-inscription) : démarre
+// son essai gratuit de 30 jours à partir de maintenant.
+const APPROVAL_TRIAL_DAYS = 30;
+
+async function approveSchool(req, res) {
+    const { id } = req.params;
+
+    try {
+        const { data: existing, error: fetchErr } = await supabase
+            .from('schools')
+            .select('id, name, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchErr || !existing) {
+            return res.status(404).json({ error: 'École introuvable.' });
+        }
+        if (existing.status !== 'pending') {
+            return res.status(409).json({ error: `Cet établissement n'est pas en attente d'approbation (statut actuel: ${existing.status}).` });
+        }
+
+        const { data: school, error } = await supabase
+            .from('schools')
+            .update({
+                status: 'approved',
+                trial_ends_at: new Date(Date.now() + APPROVAL_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+                approved_at: new Date().toISOString(),
+                approved_by: req.user.id
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        console.log(`✅ École "${school.name}" approuvée par le SuperAdmin — essai de ${APPROVAL_TRIAL_DAYS} jours démarré.`);
+
+        return res.json({
+            message: `Établissement "${school.name}" approuvé. Le directeur peut maintenant se connecter.`,
+            school
+        });
+    } catch (err) {
+        console.error('SuperAdmin approveSchool Error:', err.message);
+        return res.status(500).json({ error: "Erreur lors de l'approbation: " + err.message });
+    }
+}
+
+// ── POST /api/superadmin/schools/:id/reject ─────────────────────
+// Rejette un établissement en attente (auto-inscription).
+async function rejectSchool(req, res) {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    try {
+        const { data: existing, error: fetchErr } = await supabase
+            .from('schools')
+            .select('id, name, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchErr || !existing) {
+            return res.status(404).json({ error: 'École introuvable.' });
+        }
+        if (existing.status !== 'pending') {
+            return res.status(409).json({ error: `Cet établissement n'est pas en attente d'approbation (statut actuel: ${existing.status}).` });
+        }
+
+        const { data: school, error } = await supabase
+            .from('schools')
+            .update({ status: 'rejected', rejection_reason: reason || null })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        console.log(`⛔ École "${school.name}" rejetée par le SuperAdmin.`);
+
+        return res.json({
+            message: `Demande de "${school.name}" rejetée.`,
+            school
+        });
+    } catch (err) {
+        console.error('SuperAdmin rejectSchool Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors du rejet: ' + err.message });
     }
 }
 
@@ -229,20 +330,24 @@ async function getGlobalStats(req, res) {
             }
         }
 
-        const activeCount = schools?.filter(s => s.status === 'active').length || 0;
-        const trialCount = schools?.filter(s => s.status === 'trial').length || 0;
+        const pendingCount = schools?.filter(s => s.status === 'pending').length || 0;
+        const approvedCount = schools?.filter(s => s.status === 'approved').length || 0;
+        const rejectedCount = schools?.filter(s => s.status === 'rejected').length || 0;
         const suspendedCount = schools?.filter(s => s.status === 'suspended').length || 0;
+        const archivedCount = schools?.filter(s => s.status === 'archived').length || 0;
 
-        // Écoles dont l'essai est expiré mais pas encore mises à jour
+        // Écoles approuvées dont l'essai est expiré mais pas encore mises à jour
         const expiredTrials = schools?.filter(s =>
-            s.status === 'trial' && new Date(s.trial_ends_at) < new Date()
+            s.status === 'approved' && s.trial_ends_at && new Date(s.trial_ends_at) < new Date()
         ).length || 0;
 
         return res.json({
             total_schools: totalSchools || 0,
-            active_schools: activeCount,
-            trial_schools: trialCount,
+            pending_schools: pendingCount,
+            approved_schools: approvedCount,
+            rejected_schools: rejectedCount,
             suspended_schools: suspendedCount,
+            archived_schools: archivedCount,
             expired_trials: expiredTrials,
             total_students: totalStudents || 0,
             total_users: totalUsers || 0,
@@ -349,4 +454,4 @@ async function impersonateSchool(req, res) {
     }
 }
 
-module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool };
+module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, approveSchool, rejectSchool };

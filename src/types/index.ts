@@ -150,9 +150,15 @@ export interface School {
   address?: string;
   phone?: string;
   email?: string;
-  trial_ends_at: string;   // ISO date
-  status: 'active' | 'suspended' | 'trial';
+  trial_ends_at: string | null;   // ISO date — null tant que non approuvée
+  status: 'pending' | 'approved' | 'rejected' | 'suspended' | 'archived';
   created_at: string;
+  director_nom?: string;
+  director_telephone?: string;
+  director_email?: string;
+  rejection_reason?: string;
+  approved_at?: string;
+  approved_by?: string;
   student_count?: number;  // calculé côté serveur
   revenue?: number;        // 2000 FCFA/élève
 }

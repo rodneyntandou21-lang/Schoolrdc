@@ -10,9 +10,11 @@ const { supabase } = require('./supabase');
  * l'auto-inscription publique depuis la page de connexion.
  *
  * @param {object} data - Données validées (name, slug, address, phone, email, admin_nom, admin_telephone, admin_password, accepted_terms, accepted_privacy_policy, marketing_consent)
- * @param {object} opts - { trialDays: number }
+ * @param {object} opts - { trialDays: number, initialStatus: 'pending' | 'approved', approvedBy?: string }
+ *   'pending'  : auto-inscription publique — en attente de validation SuperAdmin, l'essai ne démarre pas.
+ *   'approved' : création directe par le SuperAdmin — approuvée d'office, l'essai démarre immédiatement.
  */
-async function provisionSchool(data, { trialDays }) {
+async function provisionSchool(data, { trialDays, initialStatus, approvedBy }) {
     const cleanSlug = data.slug;
 
     const { data: existing } = await supabase
@@ -36,8 +38,14 @@ async function provisionSchool(data, { trialDays }) {
         address: data.address || null,
         phone: data.phone || null,
         email: data.email || null,
-        status: 'trial',
-        trial_ends_at: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString(),
+        status: initialStatus,
+        trial_ends_at: initialStatus === 'pending'
+            ? null
+            : new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString(),
+        approved_at: initialStatus === 'approved' ? new Date().toISOString() : null,
+        approved_by: initialStatus === 'approved' ? (approvedBy || null) : null,
+        director_nom: data.admin_nom ? data.admin_nom.trim() : null,
+        director_telephone: data.admin_telephone ? data.admin_telephone.trim() : null,
         accepted_terms: data.accepted_terms,
         accepted_privacy_policy: data.accepted_privacy_policy,
         marketing_consent: data.marketing_consent,

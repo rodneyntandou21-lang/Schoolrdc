@@ -2,9 +2,8 @@
 // MODAL — Auto-inscription d'un établissement (Directeur)
 // ============================================================
 import React, { useState } from 'react';
-import { Building2, X, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Building2, X, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
-import { useStore } from '../store/useStore';
 
 interface RegisterSchoolModalProps {
   onClose: () => void;
@@ -20,8 +19,6 @@ function slugify(value: string): string {
 }
 
 export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClose }) => {
-  const login = useStore((s) => s.login);
-
   const [name, setName] = useState('');
   const [acronym, setAcronym] = useState('');
   const [slug, setSlug] = useState('');
@@ -78,10 +75,9 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Erreur lors de l'inscription.");
 
+      // La connexion reste bloquée tant que le SuperAdmin n'a pas approuvé
+      // l'établissement (statut 'pending') — pas de connexion automatique ici.
       setSuccess(true);
-      // Connexion automatique du directeur sur son nouvel établissement
-      await login(adminTelephone, adminPassword, slug);
-      onClose();
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue.');
     } finally {
@@ -112,6 +108,26 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
         </div>
 
         {/* Body */}
+        {success ? (
+          <div className="flex flex-col items-center text-center px-6 py-10 gap-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="w-9 h-9 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-slate-900 font-black text-lg">Demande envoyée !</h3>
+              <p className="text-slate-500 text-sm mt-2 max-w-sm">
+                Votre établissement <span className="font-bold text-slate-700">« {name} »</span> est en attente d'approbation par l'administrateur de la plateforme. Vous pourrez vous connecter dès que votre compte sera validé.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-2 px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition"
+            >
+              Compris
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5 space-y-4">
           <div>
             <p className="text-orange-600 font-black text-xs uppercase tracking-widest mb-3">1. Information de l'établissement</p>
@@ -147,7 +163,7 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Adresse physique</label>
                 <input
-                  type="text" placeholder="ex: Lomé / Brazzaville"
+                  type="text" placeholder="ex: Brazzaville"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                   value={address} onChange={(e) => setAddress(e.target.value)}
                 />
@@ -226,7 +242,6 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
           </div>
 
           {error && <div className="text-rose-500 text-xs font-bold text-center">{error}</div>}
-          {success && <div className="text-emerald-600 text-xs font-bold text-center">Établissement créé avec succès !</div>}
 
           <button
             type="submit"
@@ -234,9 +249,10 @@ export const RegisterSchoolModal: React.FC<RegisterSchoolModalProps> = ({ onClos
             className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {loading ? 'Création en cours...' : "Lancer mon essai gratuit"}
+            {loading ? 'Envoi en cours...' : "Envoyer ma demande"}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

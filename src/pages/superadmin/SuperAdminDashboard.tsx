@@ -4,8 +4,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, Users, AlertTriangle,
-  Plus, Check, X, Clock, RefreshCw, ToggleLeft, ToggleRight,
-  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink
+  Plus, Check, X, RefreshCw, ToggleLeft, ToggleRight,
+  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink,
+  Hourglass, CheckCircle2, Archive
 } from 'lucide-react';
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
@@ -24,16 +25,20 @@ function formatFCFA(n: number) {
 
 function getStatusBadge(status: School['status']) {
   const map = {
-    active: { label: 'Actif', color: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
-    trial: { label: 'Essai', color: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
+    pending: { label: "En attente d'approbation", color: 'bg-purple-500/20 text-purple-400 border border-purple-500/30' },
+    approved: { label: 'Approuvé', color: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
+    rejected: { label: 'Rejeté', color: 'bg-slate-500/20 text-slate-400 border border-slate-500/30' },
     suspended: { label: 'Suspendu', color: 'bg-red-500/20 text-red-400 border border-red-500/30' },
+    archived: { label: 'Archivé', color: 'bg-slate-500/20 text-slate-500 border border-slate-500/30' },
   };
   const s = map[status];
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${s.color}`}>
-      {status === 'active' && <Check className="w-3 h-3" />}
-      {status === 'trial' && <Clock className="w-3 h-3" />}
+      {status === 'pending' && <Hourglass className="w-3 h-3" />}
+      {status === 'approved' && <Check className="w-3 h-3" />}
+      {status === 'rejected' && <X className="w-3 h-3" />}
       {status === 'suspended' && <X className="w-3 h-3" />}
+      {status === 'archived' && <Archive className="w-3 h-3" />}
       {s.label}
     </span>
   );
@@ -49,9 +54,11 @@ interface SchoolWithStats extends School {
 
 interface GlobalStats {
   total_schools: number;
-  active_schools: number;
-  trial_schools: number;
+  pending_schools: number;
+  approved_schools: number;
+  rejected_schools: number;
   suspended_schools: number;
+  archived_schools: number;
   expired_trials: number;
   total_students: number;
   total_users: number;
@@ -128,7 +135,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Nom de l'établissement *</label>
                 <input type="text" value={form.name} onChange={e => handleNameChange(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ex: Lycée Excellence Lomé" required />
+                  placeholder="ex: Lycée Excellence Brazzaville" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Slug URL *</label>
@@ -136,14 +143,14 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                   <span className="px-3 text-slate-500 text-sm">/</span>
                   <input type="text" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
                     className="flex-1 bg-transparent px-2 py-2.5 text-white placeholder-slate-500 focus:outline-none"
-                    placeholder="lycee-excellence-lome" required />
+                    placeholder="lycee-excellence-brazzaville" required />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Adresse</label>
                 <input type="text" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Adressez à Lomé" />
+                  placeholder="Adressez à Brazzaville" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Téléphone</label>
@@ -285,8 +292,8 @@ export const SuperAdminDashboard: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const handleStatusToggle = async (school: SchoolWithStats) => {
-    const newStatus = school.status === 'active' ? 'suspended' : 'active';
-    const label = newStatus === 'active' ? 'activer' : 'suspendre';
+    const newStatus = school.status === 'suspended' ? 'approved' : 'suspended';
+    const label = newStatus === 'approved' ? 'réactiver' : 'suspendre';
     if (!confirm(`Voulez-vous ${label} "${school.name}" ?`)) return;
 
     setActionLoading(school.id);
@@ -299,6 +306,46 @@ export const SuperAdminDashboard: React.FC = () => {
       if (res.ok) await load();
     } catch (err) {
       alert('Erreur lors de la mise à jour du statut');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleApproveSchool = async (school: SchoolWithStats) => {
+    if (!confirm(`Approuver "${school.name}" ? Son essai gratuit de 30 jours démarrera immédiatement.`)) return;
+
+    setActionLoading(school.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${school.id}/approve`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de l'approbation");
+      await load();
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'approbation");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectSchool = async (school: SchoolWithStats) => {
+    const reason = prompt(`Rejeter la demande de "${school.name}" ? Vous pouvez indiquer un motif (optionnel) :`);
+    if (reason === null) return; // Annulé
+
+    setActionLoading(school.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${school.id}/reject`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors du rejet');
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors du rejet');
     } finally {
       setActionLoading(null);
     }
@@ -404,11 +451,11 @@ export const SuperAdminDashboard: React.FC = () => {
 
       {/* Stats globales */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             {
               label: 'Total Écoles', value: stats.total_schools, icon: <Building2 className="w-5 h-5" />,
-              color: 'from-blue-500 to-cyan-500', sub: `${stats.active_schools} actives`
+              color: 'from-blue-500 to-cyan-500', sub: `${stats.approved_schools} approuvées`
             },
             {
               label: 'Total Élèves', value: stats.total_students.toLocaleString(), icon: <Users className="w-5 h-5" />,
@@ -422,6 +469,10 @@ export const SuperAdminDashboard: React.FC = () => {
               label: 'Alertes', value: stats.expired_trials + stats.suspended_schools, icon: <AlertTriangle className="w-5 h-5" />,
               color: 'from-red-500 to-rose-500', sub: `${stats.expired_trials} essais expirés`
             },
+            {
+              label: 'En attente', value: stats.pending_schools, icon: <Hourglass className="w-5 h-5" />,
+              color: 'from-purple-500 to-fuchsia-500', sub: 'demandes à traiter'
+            },
           ].map((card) => (
             <div key={card.label} className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
@@ -434,6 +485,17 @@ export const SuperAdminDashboard: React.FC = () => {
               <p className="text-slate-500 text-xs mt-1">{card.sub}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Demandes en attente d'approbation */}
+      {stats && stats.pending_schools > 0 && (
+        <div className="flex items-center gap-3 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-300">
+          <Hourglass className="w-5 h-5 shrink-0" />
+          <div>
+            <p className="font-bold">{stats.pending_schools} nouvelle{stats.pending_schools > 1 ? 's' : ''} demande{stats.pending_schools > 1 ? 's' : ''} d'inscription en attente</p>
+            <p className="text-sm text-purple-300/80">Ces établissements se sont inscrits eux-mêmes et ne peuvent pas se connecter tant que vous ne les approuvez pas.</p>
+          </div>
         </div>
       )}
 
@@ -464,7 +526,7 @@ export const SuperAdminDashboard: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-800">
             {schools.map((school) => {
-              const isExpired = school.status === 'trial' && school.trial_days_left === 0;
+              const isExpired = school.status === 'approved' && !!school.trial_ends_at && school.trial_days_left === 0;
               return (
                 <div key={school.id} className={`p-5 hover:bg-slate-800/30 transition-colors ${isExpired ? 'border-l-4 border-amber-500' : ''}`}>
                   <div className="flex items-start gap-4">
@@ -520,7 +582,7 @@ export const SuperAdminDashboard: React.FC = () => {
                           <p className="text-emerald-400 font-bold text-lg">{formatFCFA(school.revenue)}</p>
                           <p className="text-slate-500 text-xs">Revenus/mois</p>
                         </div>
-                        {school.status === 'trial' && (
+                        {school.status === 'approved' && school.trial_ends_at && (
                           <div className="text-center">
                             <p className={`font-bold text-lg ${school.trial_days_left > 7 ? 'text-amber-400' : 'text-red-400'}`}>
                               {school.trial_days_left}j
@@ -533,34 +595,61 @@ export const SuperAdminDashboard: React.FC = () => {
 
                     {/* Actions dynamiques */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-slate-700/50 pt-3 sm:pt-0 sm:pl-4 mt-3 sm:mt-0">
-                      <button
-                        onClick={() => handleImpersonate(school)}
-                        disabled={actionLoading === school.id}
-                        title="Gérer cet établissement"
-                        className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-600/20 to-blue-500/10 text-blue-400 hover:from-blue-600/30 hover:to-blue-500/20 border border-blue-600/40 shadow-md transition-all disabled:opacity-50"
-                      >
-                        {actionLoading === school.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-                        GÉRER
-                      </button>
+                      {school.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleApproveSchool(school)}
+                            disabled={actionLoading === school.id}
+                            title="Approuver cet établissement"
+                            className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 text-emerald-400 hover:from-emerald-600/30 hover:to-emerald-500/20 border border-emerald-600/40 shadow-md transition-all disabled:opacity-50"
+                          >
+                            {actionLoading === school.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            APPROUVER
+                          </button>
+                          <button
+                            onClick={() => handleRejectSchool(school)}
+                            disabled={actionLoading === school.id}
+                            title="Rejeter cette demande"
+                            className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-slate-600/20 to-slate-500/10 text-slate-300 hover:from-slate-600/30 hover:to-slate-500/20 border border-slate-600/40 shadow-md transition-all disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                            REJETER
+                          </button>
+                        </>
+                      )}
 
-                      <button
-                        onClick={() => handleStatusToggle(school)}
-                        disabled={actionLoading === school.id}
-                        title={school.status === 'suspended' ? 'Activer' : 'Suspendre'}
-                        className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md ${
-                          school.status === 'suspended'
-                            ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-400/10 text-emerald-400 hover:from-emerald-500/30 hover:to-emerald-400/20 border border-emerald-500/40'
-                            : 'bg-gradient-to-r from-amber-500/20 to-amber-400/10 text-amber-400 hover:from-amber-500/30 hover:to-amber-400/20 border border-amber-500/40'
-                        } disabled:opacity-50`}
-                      >
-                        {actionLoading === school.id
-                          ? <RefreshCw className="w-4 h-4 animate-spin" />
-                          : school.status === 'suspended'
-                            ? <ToggleLeft className="w-5 h-5" />
-                            : <ToggleRight className="w-5 h-5" />
-                        }
-                        {school.status === 'suspended' ? 'RÉACTIVER' : 'SUSPENDRE'}
-                      </button>
+                      {school.status !== 'pending' && (
+                        <button
+                          onClick={() => handleImpersonate(school)}
+                          disabled={actionLoading === school.id}
+                          title="Gérer cet établissement"
+                          className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-600/20 to-blue-500/10 text-blue-400 hover:from-blue-600/30 hover:to-blue-500/20 border border-blue-600/40 shadow-md transition-all disabled:opacity-50"
+                        >
+                          {actionLoading === school.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                          GÉRER
+                        </button>
+                      )}
+
+                      {(school.status === 'approved' || school.status === 'suspended') && (
+                        <button
+                          onClick={() => handleStatusToggle(school)}
+                          disabled={actionLoading === school.id}
+                          title={school.status === 'suspended' ? 'Réactiver' : 'Suspendre'}
+                          className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md ${
+                            school.status === 'suspended'
+                              ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-400/10 text-emerald-400 hover:from-emerald-500/30 hover:to-emerald-400/20 border border-emerald-500/40'
+                              : 'bg-gradient-to-r from-amber-500/20 to-amber-400/10 text-amber-400 hover:from-amber-500/30 hover:to-amber-400/20 border border-amber-500/40'
+                          } disabled:opacity-50`}
+                        >
+                          {actionLoading === school.id
+                            ? <RefreshCw className="w-4 h-4 animate-spin" />
+                            : school.status === 'suspended'
+                              ? <ToggleLeft className="w-5 h-5" />
+                              : <ToggleRight className="w-5 h-5" />
+                          }
+                          {school.status === 'suspended' ? 'RÉACTIVER' : 'SUSPENDRE'}
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleDeleteSchool(school)}
